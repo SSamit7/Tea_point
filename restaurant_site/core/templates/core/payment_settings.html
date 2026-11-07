@@ -1,0 +1,21 @@
+{% extends 'core/base.html' %}
+{% block title %}Fonepay Settings | {{ settings.name }}{% endblock %}
+{% block content %}
+<div class="container" style="padding-top:18px;max-width:720px;">
+  <div class="card">
+    <div class="eyebrow">Admin settings</div>
+    <h2 class="display" style="font-size:26px;">Fonepay Payment Settings</h2>
+    <p class="muted">Upload the official merchant QR image issued by Fonepay or your acquiring bank. Do not use a sample or someone else's QR.</p>
+    {% if settings.fonepay_qr_image %}
+      <div class="qr-wrap"><img src="{{ settings.fonepay_qr_image.url }}" alt="Current Fonepay merchant QR"></div>
+      <p class="dim">Current Fonepay QR</p>
+    {% endif %}
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% for field in form %}<div style="margin:14px 0;"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<p class="dim">{{ field.help_text }}</p>{% endif %}{% for error in field.errors %}<p style="color:var(--red);">{{ error }}</p>{% endfor %}</div>{% endfor %}
+      <button class="btn btn-gold btn-block" type="submit">Save Fonepay Settings</button>
+    </form>
+    <a href="{% url 'menu_management' %}" class="btn btn-outline btn-block" style="margin-top:10px;">Back to Admin</a>
+  </div>
+</div>
+{% endblock %}

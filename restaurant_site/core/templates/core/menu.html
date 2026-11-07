@@ -1,0 +1,63 @@
+{% extends 'core/base.html' %}
+{% block content %}
+<div class="container">
+
+
+
+  <div class="tabs" id="tabs">
+    {% for cat in categories %}
+      <a href="#cat-{{ cat.id }}" class="tab {% if forloop.first %}active{% endif %}" data-tab="cat-{{ cat.id }}">{{ cat.name }}</a>
+    {% endfor %}
+  </div>
+
+  {% for cat in categories %}
+    <div id="cat-{{ cat.id }}" class="menu-section">
+      <div class="section-title">{{ cat.name }}</div>
+      {% for item in cat.items.all %}
+        {% if item.is_available %}
+        <div class="item-card">
+          {% if item.image %}
+            <img src="{{ item.image.url }}" class="item-thumb" alt="{{ item.name }}">
+          {% else %}
+            <div class="item-thumb"></div>
+          {% endif %}
+          <div class="item-info">
+            <div class="item-name">
+              <span class="veg-dot {% if not item.is_veg %}nonveg{% endif %}"></span>
+              {{ item.name }}
+              {% if item.is_special %}<span class="badge-special">Chef's Pick</span>{% endif %}
+            </div>
+            {% if item.description %}<div class="item-desc">{{ item.description }}</div>{% endif %}
+            <div class="item-price">रु{{ item.price }}</div>
+          </div>
+          <button class="add-btn" onclick="addToCart('{% url 'add_to_cart' table.number item.id %}', this)">Add</button>
+        </div>
+        {% endif %}
+      {% empty %}
+        <p class="dim">No items yet in this category.</p>
+      {% endfor %}
+    </div>
+  {% empty %}
+    <div class="card center">
+      <p class="muted">The menu is being set up. Please check back shortly, or ask a staff member.</p>
+    </div>
+  {% endfor %}
+</div>
+
+<div id="sticky-bar" class="sticky-bar" style="{% if not cart_count %}display:none;{% endif %}">
+  <div class="info">
+    <span id="sticky-count">{{ cart_count }}</span> item(s) added
+    <small>Tap to review your order</small>
+  </div>
+  <a href="{% url 'cart' table.number %}" class="btn btn-gold btn-sm" style="background:#1a1408; color:#e3c88a;">View Cart</a>
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', function (e) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+</script>
+{% endblock %}

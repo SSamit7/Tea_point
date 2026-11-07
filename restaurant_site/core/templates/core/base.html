@@ -1,0 +1,46 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>{% block title %}{{ settings.name|default:"The Golden Fork" }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+{% block topbar %}
+<div class="topbar">
+  <a href="{% if table %}{% url 'menu' table.number %}{% else %}{% url 'landing' %}{% endif %}" class="brand">
+    <div class="mark">{{ settings.name|default:"G"|first|upper }}</div>
+    <div>
+      <div class="brand-name">{{ settings.name|default:"The Golden Fork" }}</div>
+    </div>
+    {% if table %}<span class="table-chip">Table {{ table.number }}</span>{% endif %}
+  </a>
+  {% if table %}
+  <a href="{% url 'cart' table.number %}" class="cart-btn">
+    🛒
+    <span id="cart-badge" class="cart-badge" style="{% if not cart_count %}display:none;{% endif %}">{{ cart_count|default:0 }}</span>
+  </a>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% if messages %}
+<div class="container" style="padding-top:14px;">
+  <ul class="messages">
+    {% for message in messages %}<li>{{ message }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% block content %}{% endblock %}
+
+<script src="{% static 'core/js/main.js' %}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,84 @@
+{% extends 'core/base.html' %}
+{% block title %}Fonepay Payment | {{ settings.name }}{% endblock %}
+{% block extra_head %}
+<style>
+@media print {
+  body { background: #fff !important; color: #111 !important; }
+  .topbar, .messages, .no-print, .footer-note { display: none !important; }
+  .container { max-width: 100% !important; padding: 0 !important; }
+  .card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+  a { color: #111 !important; text-decoration: none !important; }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container" style="padding-top:10px;">
+  <div class="bill-head">
+    <div class="dim" style="font-size:12px; text-transform:uppercase; letter-spacing:1.5px;">{{ settings.name }}</div>
+    <h2 class="display" style="font-size:30px; margin-top:8px;">रु {{ bill.total }}</h2>
+    <div class="bill-no">BILL {{ bill.bill_no }} · TABLE {{ order.table.number }}</div>
+    <div class="no-print" style="margin-top:14px;"><button type="button" class="btn btn-gold btn-sm" onclick="window.print()">Download / Print Bill (PDF)</button></div>
+    <p class="dim no-print" style="font-size:11px;margin-top:6px;">Choose “Save as PDF” in the print dialog to download a PDF copy.</p>
+  </div>
+
+  {% if bill.is_paid %}
+    <div class="card center">
+      <span class="paid-flag">✓ Paid via {{ bill.get_payment_method_display }}</span>
+      <p class="dim" style="margin-top:10px; font-size:12.5px;">Thank you for dining with us!</p>
+    </div>
+  {% else %}
+    <div class="card center">
+      <div class="eyebrow">Nepal digital payment</div>
+      <h3>Choose how you are paying</h3>
+      {% if fonepay_ready %}
+        <div class="qr-wrap">
+          <img src="{{ settings.fonepay_qr_image.url }}" alt="Official Fonepay merchant QR code">
+        </div>
+        <a class="btn btn-outline btn-block" href="{{ settings.fonepay_qr_image.url }}" download="restaurant-fonepay-qr.png" style="margin-top:10px;">Download QR Code</a>
+        {% if settings.fonepay_merchant_name %}<p><strong>{{ settings.fonepay_merchant_name }}</strong></p>{% endif %}
+        <p class="muted" style="font-size:13px;">{{ settings.fonepay_instructions }}</p>
+        <p style="font-size:18px;font-weight:700;margin-top:12px;">Amount to pay: रु {{ bill.total }} (NPR)</p>
+        <p class="dim" style="font-size:11.5px;">Save the QR or scan it from another phone using Fonepay-supported mobile banking apps. Enter the exact amount shown above.</p>
+        <div class="action-row" style="justify-content:center;margin-top:12px;">
+          <a class="btn btn-outline btn-sm" href="esewa://">Open eSewa</a>
+          <a class="btn btn-outline btn-sm" href="https://khalti.com/" target="_blank" rel="noopener">Open Khalti</a>
+        </div>
+        <p class="dim" style="font-size:11px;margin-top:8px;">These are app-opening shortcuts only. No payment API or automatic payment verification is used. After paying, tell staff; staff will check the payment and confirm it manually.</p>
+      {% else %}
+        <p class="muted">The restaurant has not uploaded its official Fonepay merchant QR yet.</p>
+        <p class="dim" style="font-size:12px;">Staff: sign in as Admin and upload the QR in Payment Settings.</p>
+      {% endif %}
+    </div>
+    <form class="no-print" method="post" action="{% url 'confirm_paid' order.id %}" style="margin-top:16px;">
+      {% csrf_token %}
+      <label for="payment-method" class="form-label">How did you pay?</label>
+      <select id="payment-method" name="method" class="form-input" style="margin-bottom:10px;">
+        <option value="cash">Cash (I have handed cash to staff)</option>
+        <option value="fonepay">Fonepay / Bank QR</option>
+        <option value="esewa">eSewa</option>
+        <option value="khalti">Khalti</option>
+        <option value="bank">Other Mobile Banking</option>
+      </select>
+      <button type="submit" class="btn btn-gold btn-block">I've Paid — Notify Staff</button>
+    </form>
+    <p class="dim center" style="font-size:11.5px; margin-top:8px;">This only notifies staff that you say you have paid. The bill stays UNPAID until staff checks cash/payment receipt and manually confirms it. No payment APIs are used.</p>
+  {% endif %}
+
+  <div class="card">
+    <table class="bill-table">
+      <thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead>
+      <tbody>
+        {% for item in order.items.all %}
+        <tr><td>{{ item.menu_item.name }}</td><td>{{ item.quantity }}</td><td>रु {{ item.line_total }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="summary-row" style="margin-top:10px;"><span>Subtotal</span><span>रु {{ bill.subtotal }}</span></div>
+    <div class="summary-row"><span>Tax ({{ bill.tax_percent }}%)</span><span>रु {{ bill.tax_amount }}</span></div>
+    {% if bill.discount > 0 %}<div class="summary-row"><span>Discount</span><span>−रु {{ bill.discount }}</span></div>{% endif %}
+    <div class="summary-row total"><span>Total (NPR)</span><span>रु {{ bill.total }}</span></div>
+  </div>
+  <a href="{% url 'order_status' order.id %}" class="btn btn-outline btn-block no-print" style="margin-top:10px;">Back to Order</a>
+  <p class="footer-note">{{ settings.address }}</p>
+</div>
+{% endblock %}

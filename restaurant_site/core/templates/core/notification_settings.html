@@ -1,0 +1,34 @@
+{% extends 'core/base.html' %}
+{% block title %}Table Notifications{% endblock %}
+{% block content %}
+<div class="container" style="max-width:900px;padding-top:24px;padding-bottom:48px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div><h1 class="section-title">Table notification settings</h1><p class="dim">Choose a different sound for each table and configure staff and kitchen alerts separately.</p></div>
+    <a class="btn btn-ghost btn-sm" href="{% url 'staff_dashboard' %}">Back to staff</a>
+  </div>
+  {% for row in rows %}
+  <form method="post" enctype="multipart/form-data" class="card" style="padding:18px;margin:16px 0;">
+    {% csrf_token %}<input type="hidden" name="table_id" value="{{ row.table.id }}">
+    <h2 style="margin:0 0 14px;">Table {{ row.table.number }}</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;">
+      <section>
+        <h3>Staff alert</h3>
+        <label style="display:block;margin:10px 0;">{{ row.form.staff_enabled }} Enable staff notification</label>
+        <label class="form-label">Sound</label>{{ row.form.staff_sound }}
+        <label class="form-label" style="display:block;margin-top:10px;">Upload custom staff sound (optional)</label>{{ row.form.staff_custom_audio }}
+        {% if row.form.instance.staff_custom_audio %}<small class="dim">Current: {{ row.form.instance.staff_custom_audio.name }}</small>{% endif %}
+      </section>
+      <section>
+        <h3>Kitchen alert</h3>
+        <label style="display:block;margin:10px 0;">{{ row.form.kitchen_enabled }} Enable kitchen notification</label>
+        <label class="form-label">Sound</label>{{ row.form.kitchen_sound }}
+        <label class="form-label" style="display:block;margin-top:10px;">Upload custom kitchen sound (optional)</label>{{ row.form.kitchen_custom_audio }}
+        {% if row.form.instance.kitchen_custom_audio %}<small class="dim">Current: {{ row.form.instance.kitchen_custom_audio.name }}</small>{% endif %}
+      </section>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;"><button class="btn btn-gold" type="submit">Save Table {{ row.table.number }} Settings</button></div>
+  </form>
+  {% empty %}<div class="card">No tables have been created yet. Add tables in Django Admin first.</div>{% endfor %}
+  <p class="dim" style="font-size:12px;">Custom audio files should be short MP3 or WAV clips. Browsers require staff to press Enable sound on each device before playing alerts.</p>
+</div>
+{% endblock %}

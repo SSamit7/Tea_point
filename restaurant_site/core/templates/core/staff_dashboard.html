@@ -1,0 +1,286 @@
+{% extends 'core/base.html' %}
+{% block topbar %}
+<div class="topbar">
+  <div class="brand">
+    <div class="mark">{{ request.user.username|first|upper }}</div>
+    <div class="brand-name">{% if station == 'kitchen' %}Kitchen Dashboard{% else %}Staff Dashboard{% endif %}</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    {% if station == 'kitchen' %}
+      <a href="{% url 'kitchen_dashboard' %}" class="btn btn-gold btn-sm">Kitchen Orders</a>
+      {% if request.user.is_superuser %}<a href="{% url 'menu_management' %}" class="btn btn-outline btn-sm">Edit Menu (Admin)</a>{% endif %}
+    {% elif request.user.is_superuser %}
+      <a href="{% url 'menu_management' %}" class="btn btn-gold btn-sm">Admin Dashboard</a>
+      <a href="{% url 'payment_settings' %}" class="btn btn-ghost btn-sm">Fonepay Settings</a>
+      <a href="{% url 'notification_settings' %}" class="btn btn-ghost btn-sm">Table Notifications</a>
+      <a href="{% url 'kitchen_dashboard' %}" class="btn btn-ghost btn-sm">Kitchen Screen</a>
+    {% endif %}
+    <a href="{% url 'staff_logout' %}" class="btn btn-ghost btn-sm">Logout</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="staff-container">
+
+  <div class="card staff-alert-bar">
+    <div><strong>Live order alerts</strong><div class="dim" style="font-size:12px;">Keep this screen open. New orders are checked automatically.</div></div>
+    <button type="button" id="sound-toggle" class="btn btn-gold btn-sm" aria-pressed="false">Enable sound</button>
+    <span id="alert-status" class="dim" aria-live="polite">Waiting for new orders</span>
+  </div>
+
+  <h2 class="section-title" style="margin-top:8px;">Tables</h2>
+  <div class="table-grid">
+    {% for t in tables %}
+      <div class="table-tile {% for o in t.orders.all %}{% if o.status != 'cart' and o.status != 'paid' %}busy{% endif %}{% endfor %}">
+        <div class="num">{{ t.number }}</div>
+        <div class="status">
+          {% for o in t.orders.all %}{% if o.status != 'cart' and o.status != 'paid' %}{{ o.get_status_display }}{% endif %}{% empty %}Free{% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <section id="payment-confirmation-section" style="margin:18px 0;">
+    <h2 class="section-title">Unpaid Bills — Staff Payment Confirmation</h2>
+    <div id="payment-request-list" data-mark-paid-url="{% url 'staff_mark_paid' 0 %}">
+      {% for bill in payment_requests %}
+      <div class="order-row payment-request-card" data-order-id="{{ bill.order_id }}" style="border:2px solid #c99b42;">
+        <div class="order-row-head">
+          <div><strong>Unpaid bill · Table {{ bill.order.table.number }}</strong><div class="dim" style="font-size:12px;">Order #{{ bill.order_id }} · Bill {{ bill.bill_no }}</div></div>
+          <span class="status-pill">{% if bill.payment_requested %}Customer reported payment{% else %}Awaiting payment{% endif %}</span>
+        </div>
+        <div style="font-size:22px;font-weight:800;margin:10px 0;">Amount to confirm: रु{{ bill.total }}</div>
+        <div class="dim" style="font-size:12px;">{% if bill.payment_requested %}Customer selected {{ bill.payment_requested_method|upper }} · {{ bill.payment_requested_at|date:"g:i A" }}{% else %}No customer payment notification yet{% endif %}</div>
+        <p class="dim" style="font-size:12px;">Check the cash or payment receipt yourself before confirming. This action records staff approval only.</p>
+        <div class="action-row">
+          <form method="post" action="{% url 'staff_mark_paid' bill.order_id %}">{% csrf_token %}<input type="hidden" name="method" value="cash"><input type="hidden" name="station" value="{{ station|default:'staff' }}"><button class="btn btn-gold btn-sm" type="submit">Confirm रु{{ bill.total }} Cash Received</button></form>
+          <form method="post" action="{% url 'staff_mark_paid' bill.order_id %}">{% csrf_token %}<input type="hidden" name="method" value="online"><input type="hidden" name="station" value="{{ station|default:'staff' }}"><button class="btn btn-ghost btn-sm" type="submit">Confirm रु{{ bill.total }} Online Payment Received</button></form>
+        </div>
+      </div>
+      {% empty %}
+      <div id="no-payment-requests" class="card center dim">No customer payment confirmations waiting.</div>
+      {% endfor %}
+    </div>
+    <div id="payment-alert-status" class="dim" aria-live="polite" style="font-size:12px;margin-top:6px;">Listening for unpaid bills and customer payment notifications</div>
+  </section>
+
+  <h2 class="section-title">Active Orders</h2>
+  {% for order in orders %}
+  <div class="order-row">
+    <div class="order-row-head">
+      <div>
+        <strong>Table {{ order.table.number }}</strong> · Order #{{ order.id }}
+        <div class="dim" style="font-size:12px; margin-top:2px;">{{ order.created_at|date:"g:i A" }}</div>
+      </div>
+      <span class="status-pill status-{{ order.status }}">{{ order.get_status_display }}</span>
+    </div>
+
+    <div class="order-items">
+      {% for item in order.items.all %}{{ item.quantity }}× {{ item.menu_item.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+    </div>
+    {% if order.notes %}<div class="dim" style="font-size:12px;">Note: {{ order.notes }}</div>{% endif %}
+    <div style="font-weight:700; margin-top:8px;">रु{{ order.subtotal }}</div>
+    {% if order.bill.payment_requested %}
+      <div class="card" style="margin-top:10px;padding:12px;border:1px solid #c99b42;">
+        <strong>Payment confirmation requested</strong>
+        <div class="dim" style="font-size:12px;">Customer selected: {{ order.bill.payment_requested_method|upper }} · {{ order.bill.payment_requested_at|date:"g:i A" }}</div>
+        <div class="dim" style="font-size:12px;">Check your bank / wallet receipt or merchant account before confirming. Only staff confirmation marks this bill paid.</div>
+      </div>
+    {% endif %}
+
+    <div class="action-row">
+      {% if order.status == 'placed' %}
+        <form method="post" action="{% url 'staff_update_status' order.id 'preparing' %}" style="display:inline;">{% csrf_token %}<input type="hidden" name="station" value="{{ station|default:'staff' }}"><button class="btn btn-ghost btn-sm" type="submit">Start Preparing</button></form>
+      {% elif order.status == 'preparing' %}
+        <form method="post" action="{% url 'staff_update_status' order.id 'served' %}" style="display:inline;">{% csrf_token %}<input type="hidden" name="station" value="{{ station|default:'staff' }}"><button class="btn btn-ghost btn-sm" type="submit">Mark Served</button></form>
+      {% elif order.status == 'served' %}
+        <a class="btn btn-ghost btn-sm" href="{% url 'request_bill' order.id %}">Generate Bill</a>
+      {% endif %}
+
+      {% if order.bill and not order.bill.is_paid %}
+        <a class="btn btn-outline btn-sm" href="{% url 'bill_view' order.id %}" target="_blank">View / Download Bill</a>
+        <form method="post" action="{% url 'staff_mark_paid' order.id %}" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="method" value="cash">
+          <input type="hidden" name="station" value="{{ station|default:'staff' }}">
+          <button class="btn btn-gold btn-sm" type="submit">Confirm रु{{ order.bill.total }} Cash Received</button>
+        </form>
+        <form method="post" action="{% url 'staff_mark_paid' order.id %}" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="method" value="online">
+          <input type="hidden" name="station" value="{{ station|default:'staff' }}">
+          <button class="btn btn-ghost btn-sm" type="submit">Confirm रु{{ order.bill.total }} Online Payment Received</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="card center"><p class="muted">No active orders right now.</p></div>
+  {% endfor %}
+
+  {% if station != 'kitchen' %}
+    <h2 class="section-title" style="margin-top:24px;">Recently Paid</h2>
+    {% for paid_order in recent_paid %}
+      <div class="order-row">
+        <div class="order-row-head">
+          <div><strong>Table {{ paid_order.table.number }}</strong> · Order #{{ paid_order.id }}<div class="dim" style="font-size:12px;">{{ paid_order.bill.paid_at|date:"g:i A" }}</div></div>
+          <span class="paid-flag">✓ Paid</span>
+        </div>
+        <div class="dim" style="font-size:13px;">{{ paid_order.bill.get_payment_method_display }} · रु{{ paid_order.bill.total }} · Bill {{ paid_order.bill.bill_no }}</div>
+      </div>
+    {% empty %}
+      <p class="dim" style="font-size:12px;">No confirmed payments yet.</p>
+    {% endfor %}
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+  document.body.dataset.station = "{{ station|default:'staff' }}";
+  let lastOrderId = Number('{{ orders.0.id|default:0 }}');
+  let soundEnabled = false;
+  let audioContext = null;
+  const toggle = document.getElementById('sound-toggle');
+  const status = document.getElementById('alert-status');
+
+  function playTone(kind) {
+    if (!soundEnabled || !audioContext || kind === 'silent') return;
+    const patterns = {
+      chime: [880, 1175, 1480], bell: [660, 990], double: [740, 740], urgent: [1100, 660, 1100, 660]
+    };
+    const notes = patterns[kind] || patterns.chime;
+    notes.forEach((frequency, index) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      const at = audioContext.currentTime + index * 0.19;
+      oscillator.type = 'sine'; oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.16, at + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.16);
+      oscillator.connect(gain); gain.connect(audioContext.destination);
+      oscillator.start(at); oscillator.stop(at + 0.17);
+    });
+  }
+
+  function playOrderAlert(order) {
+    if (!soundEnabled) return;
+    const station = document.body.dataset.station || 'staff';
+    const enabled = station === 'kitchen' ? order.kitchen_enabled : order.staff_enabled;
+    const sound = station === 'kitchen' ? order.kitchen_sound : order.staff_sound;
+    const audioUrl = station === 'kitchen' ? order.kitchen_audio : order.staff_audio;
+    if (!enabled) return;
+    if (audioUrl) {
+      const audio = new Audio(audioUrl); audio.volume = 0.85;
+      audio.play().catch(() => playTone(sound));
+    } else playTone(sound);
+  }
+
+  toggle?.addEventListener('click', async () => {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) throw new Error('Audio is not supported by this browser');
+      audioContext = audioContext || new AudioContextClass();
+      await audioContext.resume(); soundEnabled = !soundEnabled;
+      toggle.textContent = soundEnabled ? 'Sound is on' : 'Enable sound';
+      toggle.setAttribute('aria-pressed', String(soundEnabled));
+      status.textContent = soundEnabled ? 'Audible alerts enabled' : 'Sound alerts muted';
+      if (soundEnabled) playTone('chime');
+    } catch (error) { status.textContent = error.message; }
+  });
+
+  async function checkForOrders() {
+    try {
+      const response = await fetch('{% url "staff_new_orders" %}?after=' + lastOrderId, {headers: {'X-Requested-With': 'XMLHttpRequest'}, cache: 'no-store'});
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.orders && data.orders.length) {
+        data.orders.forEach(playOrderAlert);
+        lastOrderId = Math.max(lastOrderId, ...data.orders.map(order => Number(order.id)));
+        status.textContent = data.orders.map(order => 'Table ' + order.table + ' · Order #' + order.id).join(' | ');
+        document.title = 'NEW ORDER · Staff Dashboard';
+        // Kitchen screen reloads after the alert so the new order appears in the active-order list.
+        if ((document.body.dataset.station || 'staff') === 'kitchen') { window.setTimeout(() => window.location.reload(), 900); }
+      }
+    } catch (error) { /* Retry on the next polling cycle. */ }
+  }
+  const paymentList = document.getElementById('payment-request-list');
+  const paymentStatus = document.getElementById('payment-alert-status');
+  const seenPaymentRequests = new Set(Array.from(document.querySelectorAll('.payment-request-card')).map(card => card.dataset.orderId));
+
+  function csrfToken() {
+    const field = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (field) return field.value;
+    const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+
+  function addPaymentRequest(item) {
+    if (!paymentList || paymentList.querySelector('[data-order-id="' + item.order_id + '"]')) return;
+    document.getElementById('no-payment-requests')?.remove();
+    const card = document.createElement('div');
+    card.className = 'order-row payment-request-card';
+    card.dataset.orderId = String(item.order_id);
+    card.style.border = '2px solid #c99b42';
+    const heading = document.createElement('strong');
+    heading.textContent = 'Unpaid bill · Table ' + item.table;
+    const detail = document.createElement('div');
+    detail.className = 'dim'; detail.style.fontSize = '12px';
+    detail.textContent = 'Order #' + item.order_id + ' · Bill ' + item.bill_no + ' · ' + (item.payment_requested ? 'Customer reported ' + item.method.toUpperCase() : 'No payment notification yet');
+    const state = document.createElement('span'); state.className = 'status-pill'; state.textContent = item.payment_requested ? 'Customer reported payment' : 'Awaiting payment';
+    const amount = document.createElement('div');
+    amount.style.cssText = 'font-size:22px;font-weight:800;margin:10px 0;';
+    amount.textContent = 'Amount to confirm: रु' + item.amount;
+    const hint = document.createElement('p');
+    hint.className = 'dim'; hint.style.fontSize = '12px';
+    hint.textContent = 'Check the cash or payment receipt yourself before confirming. This action records staff approval only.';
+    const actions = document.createElement('div'); actions.className = 'action-row';
+    const baseUrl = paymentList.dataset.markPaidUrl.replace('/0/', '/' + item.order_id + '/');
+    [['cash', 'Confirm रु' + item.amount + ' Cash Received', 'btn btn-gold btn-sm'], ['online', 'Confirm रु' + item.amount + ' Online Payment Received', 'btn btn-ghost btn-sm']].forEach(([method, label, className]) => {
+      const form = document.createElement('form'); form.method = 'post'; form.action = baseUrl;
+      const token = document.createElement('input'); token.type = 'hidden'; token.name = 'csrfmiddlewaretoken'; token.value = csrfToken();
+      const methodInput = document.createElement('input'); methodInput.type = 'hidden'; methodInput.name = 'method'; methodInput.value = method;
+      const stationInput = document.createElement('input'); stationInput.type = 'hidden'; stationInput.name = 'station'; stationInput.value = document.body.dataset.station || 'staff';
+      const button = document.createElement('button'); button.type = 'submit'; button.className = className; button.textContent = label;
+      form.append(token, methodInput, stationInput, button); actions.appendChild(form);
+    });
+    card.append(heading, state, detail, amount, hint, actions);
+    paymentList.prepend(card);
+  }
+
+  async function checkForPaymentRequests() {
+    if (!paymentList) return;
+    try {
+      const response = await fetch('{% url "staff_payment_requests" %}', {headers: {'X-Requested-With': 'XMLHttpRequest'}, cache: 'no-store'});
+      if (!response.ok) return;
+      const data = await response.json();
+      (data.requests || []).forEach(item => {
+        const id = String(item.order_id);
+        if (!seenPaymentRequests.has(id)) {
+          seenPaymentRequests.add(id);
+          addPaymentRequest(item);
+          playTone('urgent');
+          if (paymentStatus) paymentStatus.textContent = 'NEW PAYMENT REQUEST · Table ' + item.table + ' · रु' + item.amount;
+          document.title = 'PAYMENT TO CONFIRM · Staff Dashboard';
+      }
+      });
+      const pendingIds = new Set((data.requests || []).map(item => String(item.order_id)));
+      paymentList.querySelectorAll('.payment-request-card').forEach(card => {
+        if (!pendingIds.has(card.dataset.orderId)) card.remove();
+      });
+    } catch (error) { /* Retry on the next polling cycle. */ }
+  }
+
+  window.setInterval(checkForOrders, 4000);
+  window.setInterval(checkForPaymentRequests, 3000);
+  if ((document.body.dataset.station || 'staff') === 'kitchen') {
+    // Keep the kitchen display current even when an existing order is updated rather than a new ID being created.
+    window.setInterval(() => window.location.reload(), 15000);
+  }
+  checkForPaymentRequests();
+})();
+</script>
+{% endblock %}

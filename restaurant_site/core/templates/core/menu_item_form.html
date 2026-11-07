@@ -1,0 +1,25 @@
+{% extends 'core/base.html' %}
+{% block title %}Edit {{ item.name }} | Menu{% endblock %}
+{% block topbar %}
+<div class="topbar"><a href="{% url 'menu_management' %}" class="brand"><div class="mark">A</div><div class="brand-name">Menu Management</div></a><a href="{% url 'staff_logout' %}" class="btn btn-ghost btn-sm">Logout</a></div>
+{% endblock %}
+{% block content %}
+<div class="login-wrap" style="max-width:620px;">
+  <div class="card">
+    <h2 class="section-title" style="margin-top:0;">Edit {{ item.name }}</h2>
+    <p class="dim">Update the exact selling price you want customers to see.</p>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% for field in form %}
+        <div style="margin:12px 0;">
+          <label for="{{ field.id_for_label }}" style="display:block;font-weight:600;margin-bottom:6px;">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="dim" style="font-size:12px;margin-top:4px;">{{ field.help_text }}</div>{% endif %}
+          {% for error in field.errors %}<div style="color:var(--red);font-size:12px;">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-gold" type="submit">Save changes</button><a class="btn btn-outline" href="{% url 'menu_management' %}">Cancel</a></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

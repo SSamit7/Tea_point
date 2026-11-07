@@ -1,0 +1,38 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ settings.name }} | Order Online{% endblock %}
+{% block content %}
+<section class="hero landing-hero">
+  <div class="eyebrow">Welcome · Freshly prepared</div>
+  <h1 class="display">{{ settings.name }}</h1>
+  <p>{{ settings.tagline }}</p>
+  <p class="muted">Scan the QR code on your table to open its menu and place your order.</p>
+</section>
+<div class="container">
+  <section class="landing-order card center">
+    <div class="eyebrow">Order online</div>
+    <h2>Choose your table to view the menu</h2>
+    <p class="muted">If you are dining in, select the table where you are seated.</p>
+    {% if tables %}
+      <div class="table-grid">
+        {% for t in tables %}
+          <a href="{% url 'menu' t.number %}" class="table-tile">
+            <div class="num">{{ t.number }}</div><div class="status">View menu</div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="muted">Online ordering is not available yet. Please ask a staff member for help.</p>
+    {% endif %}
+  </section>
+  <section class="card center" style="margin-top:22px;">
+    <div class="eyebrow">Staff access</div>
+    <h2>Restaurant team</h2>
+    <p class="muted">Authorized staff only. A password is required.</p>
+    <div class="wallet-grid" style="margin-top:14px;">
+      <a class="btn btn-outline" href="{% url 'admin_login' %}?next=/manage/menu/">Admin Login</a>
+      <a class="btn btn-outline" href="{% url 'kitchen_login' %}?next=/kitchen/">Kitchen Login</a>
+    </div>
+  </section>
+  <p class="footer-note">{{ settings.address }} {% if settings.phone %}· {{ settings.phone }}{% endif %}</p>
+</div>
+{% endblock %}

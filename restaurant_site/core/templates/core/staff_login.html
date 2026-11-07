@@ -1,0 +1,24 @@
+{% extends 'core/base.html' %}
+{% block topbar %}
+<div class="topbar">
+  <div class="brand">
+    <div class="mark">{{ settings.name|default:"G"|first|upper }}</div>
+    <div class="brand-name">{{ settings.name|default:"The Golden Fork" }}</div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <h2 class="display center" style="font-size:24px; margin-bottom:24px;">{{ login_role|default:"Staff" }} Login</h2>
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      {% if form.errors %}<p class="dim" style="color:var(--red); font-size:12.5px;">Invalid username or password.</p>{% endif %}
+      <input class="form-input" type="text" name="username" placeholder="Username" required autofocus>
+      <input class="form-input" type="password" name="password" placeholder="Password" required>
+      <button class="btn btn-gold btn-block" type="submit">Log In</button>
+      <input type="hidden" name="next" value="{{ next }}">
+    </form>
+  </div>
+</div>
+{% endblock %}

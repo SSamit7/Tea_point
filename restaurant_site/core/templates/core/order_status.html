@@ -1,0 +1,78 @@
+{% extends 'core/base.html' %}
+{% block content %}
+<div class="container" style="padding-top:20px;">
+  <h2 class="display" style="font-size:26px;">Order #{{ order.id }}</h2>
+  <p class="dim" style="margin-top:6px; font-size:13px;">Table {{ order.table.number }} · Placed {{ order.created_at|date:"g:i A" }}</p>
+  <p style="margin-top:8px;"><span id="live-order-status" class="status-pill status-{{ order.status }}">{{ order.get_status_display }}</span></p>
+
+  <div class="card">
+    <div class="timeline">
+      <div class="step {% if order.step_index >= 0 %}done{% endif %}"><div class="dot">✓</div><div class="label">Placed</div></div>
+      <div class="step {% if order.step_index >= 1 %}done{% endif %}"><div class="dot">{% if order.step_index >= 1 %}✓{% else %}2{% endif %}</div><div class="label">Preparing</div></div>
+      <div class="step {% if order.step_index >= 2 %}done{% endif %}"><div class="dot">{% if order.step_index >= 2 %}✓{% else %}3{% endif %}</div><div class="label">Served</div></div>
+      <div class="step {% if order.step_index >= 3 %}done{% endif %}"><div class="dot">{% if order.step_index >= 3 %}✓{% else %}4{% endif %}</div><div class="label">Billed</div></div>
+      <div class="step {% if order.step_index >= 4 %}done{% endif %}"><div class="dot">{% if order.step_index >= 4 %}✓{% else %}5{% endif %}</div><div class="label">Paid</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title" style="margin-top:0; font-size:16px;">Items</div>
+    {% for item in order.items.all %}
+    <div class="cart-line">
+      <div class="cart-line-name">{{ item.quantity }} × {{ item.menu_item.name }}</div>
+      <div style="font-weight:700;">रु{{ item.line_total }}</div>
+    </div>
+    {% endfor %}
+    {% if order.notes %}<p class="dim" style="margin-top:10px; font-size:12.5px;">Note: {{ order.notes }}</p>{% endif %}
+    <div class="summary-row total"><span>Subtotal</span><span>रु{{ order.subtotal }}</span></div>
+  </div>
+
+  <div id="paid-confirmation" class="card center" {% if order.status != 'paid' %}hidden{% endif %}>
+    <span class="paid-flag">✓ Payment confirmed — thank you!</span>
+    <p id="paid-method" class="dim" style="margin-top:8px;font-size:12px;">{% if bill and bill.is_paid %}Paid via {{ bill.get_payment_method_display }}{% endif %}</p>
+  </div>
+  <div id="payment-request-message" class="card center" {% if not bill or not bill.payment_requested or bill.is_paid %}hidden{% endif %}>
+    <strong>Payment notification sent</strong>
+    <p class="dim" style="font-size:12px;margin-top:6px;">Staff will verify your payment and confirm it here.</p>
+  </div>
+  <div id="status-actions" {% if order.status == 'paid' %}hidden{% endif %}>
+    <a id="request-bill-link" href="{% url 'request_bill' order.id %}" class="btn btn-gold btn-block" style="margin-top:18px;" {% if bill %}hidden{% endif %}>Request Bill</a>
+    <a id="view-bill-link" href="{% url 'bill_view' order.id %}" class="btn btn-gold btn-block" style="margin-top:18px;" {% if not bill %}hidden{% endif %}>View Bill & Pay</a>
+  </div>
+  <p class="dim center" style="font-size:12px;margin-top:10px;">Order status updates automatically. This page will not reload.</p>
+
+  <a href="{% url 'menu' order.table.number %}" class="btn btn-outline btn-block" style="margin-top:10px;">Back to Menu</a>
+</div>
+{% block extra_js %}
+<script>
+(() => {
+  const endpoint = '{% url "order_status_data" order.id %}';
+  const statusEl = document.getElementById('live-order-status');
+  const paidBox = document.getElementById('paid-confirmation');
+  const paidMethod = document.getElementById('paid-method');
+  const requestBox = document.getElementById('payment-request-message');
+  const actions = document.getElementById('status-actions');
+  const requestLink = document.getElementById('request-bill-link');
+  const billLink = document.getElementById('view-bill-link');
+  async function refreshOrderStatus() {
+    try {
+      const response = await fetch(endpoint, {cache: 'no-store', headers: {'X-Requested-With': 'XMLHttpRequest'}});
+      if (!response.ok) return;
+      const data = await response.json();
+      statusEl.textContent = data.status_display;
+      statusEl.className = 'status-pill status-' + data.status;
+      if (requestLink) requestLink.hidden = data.bill_ready;
+      if (billLink) billLink.hidden = !data.bill_ready;
+      if (data.paid) {
+        paidBox.hidden = false; actions.hidden = true; requestBox.hidden = true;
+        paidMethod.textContent = 'Paid via ' + data.payment_method;
+      } else {
+        paidBox.hidden = true; actions.hidden = false; requestBox.hidden = !data.payment_requested;
+      }
+    } catch (error) { /* retry on next interval */ }
+  }
+  window.setInterval(refreshOrderStatus, 5000);
+})();
+</script>
+{% endblock %}
+{% endblock %}
