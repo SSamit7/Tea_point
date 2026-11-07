@@ -13,6 +13,7 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = [
     "https://tea-point-ten.vercel.app",
+    "https://tea-point-5dovvev3w-warrior-a525.vercel.app",
     ".vercel.app",
     "localhost",
     "127.0.0.1",
