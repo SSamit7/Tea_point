@@ -23,10 +23,6 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
 ]
-<<<<<<< HEAD
-
-=======
->>>>>>> 9daf8e8 (commit)
 CSRF_TRUSTED_ORIGINS = [
     "https://tea-point-ten.vercel.app",
     "https://tea-point-5dovvev3w-warrior-a525.vercel.app",
