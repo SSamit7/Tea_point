@@ -3,3 +3,5 @@ Pillow>=10.0
 qrcode>=7.4
 dj-database-url
 psycopg[binary]
+cloudinary
+django-cloudinary-storage

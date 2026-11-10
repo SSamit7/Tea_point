@@ -33,12 +33,16 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Applications
 INSTALLED_APPS = [
+    'cloudinary_storage',
+    'cloudinary',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'core',
 ]
 
@@ -123,3 +127,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Authentication
 LOGIN_URL = 'staff_login'
 LOGIN_REDIRECT_URL = 'staff_dashboard'
+
+
+
+# Cloudinary Media Storage
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+}
+
+# Django 5.2 storage configuration
+STORAGES = {
+    'default': {
+        'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+}
